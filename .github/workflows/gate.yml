@@ -1,0 +1,46 @@
+name: llm-release-gate
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    env:
+      PROMPTFOO_DISABLE_TELEMETRY: '1'
+      PROMPTFOO_DISABLE_UPDATE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Release gate
+        id: gate
+        run: npm run gate -- --repeat 3
+        continue-on-error: true
+      - name: Post report as PR comment
+        if: always() && hashFiles('report.md') != ''
+        continue-on-error: true # fork PRs get a read-only token; the gate verdict still decides the job
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        # --edit-last updates the bot's previous comment instead of stacking new ones.
+        run: gh pr comment "$PR" --body-file report.md --edit-last --create-if-none
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate-report
+          path: |
+            report.md
+            out/results.json
+      - name: Fail job when gate blocks
+        if: steps.gate.outcome != 'success'
+        run: |
+          echo "Release gate BLOCKED this change. See report.md in the PR comment."
+          exit 1
