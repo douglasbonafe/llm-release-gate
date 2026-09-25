@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: LLM Release Gate - approved vs candidate support prompt
+prompts:
+  - id: file://prompts/approved.txt
+    label: approved
+  - id: file://prompts/candidate.txt
+    label: candidate
+providers:
+  # SIMULATED deterministic support agent (offline). For a real model run: npm run gate -- --real
+  # (needs ANTHROPIC_API_KEY; swaps in anthropic:messages:claude-sonnet-5).
+  - id: file://src/sim.ts
+    label: sim-support-agent
+tests: file://data/cases.ts
+defaultTest:
+  assert:
+    - { type: javascript, metric: format, value: file://src/checks.ts:format }
+    - { type: javascript, metric: business_rule, value: file://src/checks.ts:businessRule }
+    - { type: javascript, metric: escalation, value: file://src/checks.ts:escalation }
+    - { type: javascript, metric: action, value: file://src/checks.ts:action }
+    - { type: javascript, metric: grounding, value: file://src/checks.ts:grounding }
+    - { type: javascript, metric: language, value: file://src/checks.ts:language }
